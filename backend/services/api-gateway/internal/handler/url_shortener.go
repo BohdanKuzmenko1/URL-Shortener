@@ -78,6 +78,7 @@ func (h *Handler) ResolveSlug(c *gin.Context) {
 
 	if err != nil {
 		logrus.WithField("slug", slug).Error("failed to resolve slug")
+		logrus.Println(err)
 		c.Redirect(http.StatusMovedPermanently, viper.GetString("frontend.homepage"))
 		return
 	}

@@ -5,6 +5,7 @@ import (
 	pb "github.com/BohdanKuzmenko1/URLShortener/proto"
 	"github.com/BohdanKuzmenko1/URLShortener/services/api-gateway/internal/middleware"
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/viper"
 	"net/http"
 	"os"
@@ -51,6 +52,9 @@ func (h *Handler) InitRoutes() *gin.Engine {
 	signingKey := []byte(os.Getenv("JWT_SIGNING_KEY"))
 
 	router := gin.New()
+	router.Use(middleware.PrometheusMiddleware())
+
+	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	router.GET("/:slug", h.ResolveSlug)
 	router.GET("/", func(c *gin.Context) {

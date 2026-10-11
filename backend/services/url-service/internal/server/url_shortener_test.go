@@ -173,7 +173,8 @@ func TestURLServer_CreateShortURL(t *testing.T) {
 				token = ""
 			}
 
-			ctx := context.Background()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
 
 			if tt.metadataExists {
 				ctx = metadata.NewIncomingContext(ctx, metadata.Pairs("authorization", token))

@@ -1,6 +1,19 @@
 version: '3.8'
 
 services:
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: https://api.example.com
+    container_name: frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./letsencrypt:/etc/letsencrypt:ro
+    restart: unless-stopped
   kafka:
     image: apache/kafka:latest
     container_name: kafka
@@ -96,11 +109,12 @@ services:
 
   url-service:
     build:
-      context: ../../
-      dockerfile: backend/services/url-service/Dockerfile
+      context: ..
+      dockerfile: ../backend/services/url-service/Dockerfile
     container_name: url-service
     ports:
       - "50051:50051"
+      # - "9102:9102"   # prometheus
     environment:
       - DATABASE_URL=postgresql://user:password@postgres:5432/urlshortener?sslmode=disable
       - LOG_LEVEL=info
@@ -116,11 +130,12 @@ services:
 
   stats-service:
     build:
-      context: ../../
-      dockerfile: backend/services/stats-service/Dockerfile
+      context: ..
+      dockerfile: ../backend/services/stats-service/Dockerfile
     container_name: stats-service
     ports:
       - "50054:50054"
+      # - "9103:9103"   # prometheus
     environment:
       - DATABASE_URL=postgresql://user:password@postgres:5432/urlshortener?sslmode=disable
       - LOG_LEVEL=info
@@ -138,15 +153,17 @@ services:
 
   auth-service:
     build:
-      context: ../../
-      dockerfile: backend/services/auth-service/Dockerfile
+      context: ..
+      dockerfile: ../backend/services/auth-service/Dockerfile
     container_name: auth-service
     ports:
       - "50052:50052"
+      - "9101:9101"
     environment:
       - DATABASE_URL=postgresql://user:password@postgres:5432/urlshortener?sslmode=disable
       - REDIS_URL=redis:6379
       - LOG_LEVEL=info
+      - METRICS_PORT=:9101
     depends_on:
       postgres:
         condition: service_healthy
@@ -160,8 +177,8 @@ services:
 
   api-gateway:
     build:
-      context: ../../
-      dockerfile: backend/services/api-gateway/Dockerfile
+      context: ..
+      dockerfile: ../backend/services/api-gateway/Dockerfile
     container_name: api-gateway
     ports:
       - "8090:8090"
@@ -177,10 +194,43 @@ services:
       - url-shortener-network
     restart: unless-stopped
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - api-gateway
+      - auth-service
+    networks:
+      - url-shortener-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - url-shortener-network
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:
   kafka_data:
+  prometheus_data:
+  grafana_data:
 
 networks:
   url-shortener-network:

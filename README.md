@@ -53,7 +53,7 @@ A high-performance URL shortening service built with a microservices architectur
 │   ├── api-gateway/        # REST API gateway
 │   ├── auth-service/       # Authentication & authorization
 │   ├── url-service/        # URL shortening & redirects
-│   ├── stats-service/      # Optimized stats
+│   ├── stats-service/      # URL stats processing
 ├── shared/                 # Shared types (JWT claims)
 ├── deploy/
 │   ├── docker-compose.yml

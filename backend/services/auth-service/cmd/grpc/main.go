@@ -6,14 +6,17 @@ import (
 	"github.com/BohdanKuzmenko1/URLShortener/services/auth-service/internal/server"
 	"github.com/BohdanKuzmenko1/URLShortener/services/auth-service/internal/service"
 	"github.com/BohdanKuzmenko1/URLShortener/services/auth-service/internal/storage"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -65,14 +68,30 @@ func main() {
 	authStorage := storage.NewAuthStorage(redisClient)
 	authService := service.NewAuthService(authRepo, authStorage)
 
-	s := grpc.NewServer()
+	s := grpc.NewServer(
+		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
+		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
+	)
 	pb.RegisterAuthServiceServer(s, server.NewAuthServer(authService))
+	grpc_prometheus.Register(s)
 
 	logrus.Infof("Auth Service is running on port %s...", viper.GetString("auth-service.port"))
 
 	go func() {
 		if err := s.Serve(lis); err != nil {
 			logrus.Fatalf("failed to serve: %v", err)
+		}
+	}()
+
+	go func() {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.Handler())
+
+		metricsAddr := viper.GetString("auth-service.metrics-port")
+		logrus.Infof("Auth Service metrics available at %s/metrics", metricsAddr)
+
+		if err := http.ListenAndServe(metricsAddr, mux); err != nil {
+			logrus.Errorf("metrics server error: %v", err)
 		}
 	}()
 

@@ -10,6 +10,7 @@ url-service:
 auth-service:
   address: "auth-service:50052"
   port: ":50052"
+  metrics-port: ":9100"
 
 stats-service:
   address: "stats-service:50054"
